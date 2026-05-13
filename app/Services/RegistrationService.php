@@ -60,7 +60,7 @@ class RegistrationService
 
         $perPage = min($filters['per_page'] ?? 15, 100);
 
-        return $query->orderBy('created_at', 'desc')
+        return $query->orderBy('id', 'asc')
             ->paginate($perPage);
     }
 
