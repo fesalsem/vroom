@@ -1,3 +1,7 @@
+@php
+    $isAgent = Auth::user()->email === 'agent@capbayauto.com';
+@endphp
+
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100">
     <!-- Primary Navigation Menu -->
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -16,9 +20,11 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
 
-                    <x-nav-link :href="route('agent.registrations.index')" :active="request()->routeIs('agent.registrations.*')">
-                        {{ __('Registrations') }}
-                    </x-nav-link>
+                    @if ($isAgent)
+                        <x-nav-link :href="route('agent.registrations.index')" :active="request()->routeIs('agent.registrations.*')">
+                            {{ __('Registrations') }}
+                        </x-nav-link>
+                    @endif
                 </div>
             </div>
 
@@ -75,9 +81,11 @@
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
 
-            <x-responsive-nav-link :href="route('agent.registrations.index')" :active="request()->routeIs('agent.registrations.*')">
-                {{ __('Registrations') }}
-            </x-responsive-nav-link>
+            @if ($isAgent)
+                <x-responsive-nav-link :href="route('agent.registrations.index')" :active="request()->routeIs('agent.registrations.*')">
+                    {{ __('Registrations') }}
+                </x-responsive-nav-link>
+            @endif
         </div>
 
         <!-- Responsive Settings Options -->
