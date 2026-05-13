@@ -46,5 +46,11 @@ jobs:
       - name: Create SQLite database
         run: touch database/database.sqlite
 
+      - name: Install NPM dependencies
+        run: npm ci
+
+      - name: Build frontend assets
+        run: npm run build
+
       - name: Execute tests
         run: php artisan test
