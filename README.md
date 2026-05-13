@@ -70,7 +70,7 @@ php artisan test --filter=StateMachineServiceTest
 php artisan test --filter=CustomerRegistrationTest
 ```
 
-There are **77 tests** with **163 assertions** covering unit tests (enum, services) and feature tests (controllers, auth, business logic).
+There are **56 tests** with **110 assertions** covering unit tests (enum, services) and feature tests (controllers, auth, business logic).
 
 ---
 
@@ -197,7 +197,7 @@ I used an AI coding assistant (Roo) to help generate parts of this codebase. Spe
 
 ### One Example Where AI-Generated Code Was Wrong
 
-The AI initially generated the `PromotionService::getQueuePosition()` method with an incorrectly scoped `orWhere` clause:
+The AI initially generated the `PromotionEligibilityService::getQueuePosition()` method with an incorrectly scoped `orWhere` clause:
 
 ```php
 // ❌ AI-generated — this counts ALL registrations, not just CapBay Vroom
@@ -289,5 +289,7 @@ tests/
     ├── CustomerRegistrationTest.php
     ├── AgentRegistrationManagementTest.php
     ├── PromotionEligibilityTest.php
-    └── StateTransitionTest.php
+    ├── StateTransitionTest.php
+    └── Auth/
+        └── AuthenticationTest.php
 ```
