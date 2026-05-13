@@ -1,58 +1,293 @@
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+# CapBay Auto — Test Drive Registration System
 
-## About Laravel
+A Laravel 13 application built for **CapBay Auto Sdn. Bhd.** to manage test drive registrations, determine promotion eligibility, and calculate loan amounts for car purchases.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+This was built as a technical assessment demonstrating service-oriented architecture, state machine patterns, and scalable database design.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+---
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Stack
 
-## Learning Laravel
+| Layer | Technology |
+|-------|-----------|
+| Framework | Laravel 13 |
+| Frontend | Blade + TailwindCSS |
+| Database | MySQL (production) / SQLite (local dev) |
+| Testing | PestPHP |
+| Auth | Laravel Breeze (Blade) |
+| PHP | ^8.3 |
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+---
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Installation
 
 ```bash
-composer require laravel/boost --dev
+# 1. Clone and install dependencies
+composer install
+npm install
 
-php artisan boost:install
+# 2. Environment
+cp .env.example .env
+php artisan key:generate
+
+# 3. Database — configure in .env
+# For SQLite (default): just touch database/database.sqlite
+# For MySQL:
+#   DB_CONNECTION=mysql
+#   DB_DATABASE=capbay_auto
+#   DB_USERNAME=root
+#   DB_PASSWORD=
+
+# 4. Migrate and seed
+php artisan migrate
+php artisan db:seed
+
+# 5. Build frontend assets
+npm run build
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+## Default Login
 
-## Contributing
+| Field | Value |
+|-------|-------|
+| Email | `agent@capbayauto.com` |
+| Password | `password` |
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+---
 
-## Code of Conduct
+## Running Tests
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```bash
+# Run everything
+php artisan test
 
-## Security Vulnerabilities
+# Run specific test files
+php artisan test --filter=PromotionEligibilityTest
+php artisan test --filter=StateTransitionTest
+php artisan test --filter=StateMachineServiceTest
+php artisan test --filter=CustomerRegistrationTest
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+There are **77 tests** with **163 assertions** covering unit tests (enum, services) and feature tests (controllers, auth, business logic).
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## Architecture Overview
+
+I went with a **service-oriented architecture** to keep the controllers thin and the business logic testable in isolation. The structure looks like this:
+
+```
+Request → Controller → Service Layer → Model → Database
+```
+
+### Services
+
+| Service | Responsibility |
+|---------|---------------|
+| [`RegistrationService`](app/Services/RegistrationService.php) | Orchestrator — coordinates the other services for create, update, list operations |
+| [`PromotionEligibilityService`](app/Services/PromotionEligibilityService.php) | Checks if a customer qualifies for the 15% promotion discount |
+| [`LoanCalculationService`](app/Services/LoanCalculationService.php) | Calculates loan amounts and determines approval |
+| [`RegistrationStateService`](app/Services/RegistrationStateService.php) | Manages the state machine and logs transitions |
+
+### State Machine
+
+```
+Registered → Test Drive Scheduled → Test Drive Completed → Purchased
+    ↓                    ↓                      ↓
+    └────→ Cancelled ←──┴────────←──────────────┘
+```
+
+Both `Purchased` and `Cancelled` are **terminal states** — once reached, no further transitions are allowed. This is enforced by the [`RegistrationStatus`](app/Enums/RegistrationStatus.php) enum's `allowedTransitions()` method.
+
+### Why services instead of putting logic in models?
+
+I wanted to keep the models focused on data (relationships, scopes, casts) and move business rules into dedicated classes. This makes testing easier — I can test `PromotionEligibilityService::isEligible()` without needing to hit a controller route. It also means if the promotion rules change later, I only need to modify one file.
+
+---
+
+## Assumptions I Made
+
+1. **Duplicates are allowed** — The same email can register multiple times. The system doesn't enforce unique emails because a family member might register separately, or someone might want to test drive a different model later.
+
+2. **Car model is fixed to CapBay Vroom** — The public form only offers the CapBay Vroom (RM 200,000). The seeder creates other models (Sedan, SUV, Hatchback, EV) for testing, but the customer-facing form is scoped to one model.
+
+3. **Cancelled registrations don't free promotion slots** — This was a deliberate design decision (explained below in the promotion section).
+
+4. **No authentication for the public form** — Customers don't need to log in to register for a test drive. Only the agent dashboard requires authentication.
+
+5. **Down payment starts at 0** — When a customer first registers, they haven't committed to a down payment yet. The agent updates this later during follow-up.
+
+---
+
+## Money Datatype Explanation
+
+All monetary values are stored as **integer cents** using a `bigint` column.
+
+| Real Amount | Stored As |
+|-------------|-----------|
+| RM 200,000.00 | `20_000_000` |
+| RM 15,000.00 | `1_500_000` |
+| RM 0.50 | `50` |
+
+**Why not float/decimal?** Floating-point arithmetic causes precision issues (0.1 + 0.2 = 0.30000000000000004). With integers, `20_000_000 - 4_000_000` always equals exactly `16_000_000`. The [`<x-money>`](resources/views/components/money.blade.php) Blade component handles the display formatting (`RM 200,000.00`).
+
+---
+
+## Promotion Eligibility Reasoning
+
+### The Rules
+
+A customer qualifies for the 15% discount if **all four** conditions are met:
+
+1. Car model is **CapBay Vroom**
+2. They are among the **first 10** to register for this model
+3. They have paid **≥10% down payment**
+4. Their **loan is approved**
+
+### Why cancelled registrations don't free up slots
+
+This was the trickiest design decision. Here's my reasoning:
+
+- **First-come, first-served** — The promotion says "first 10 customers." Slot assignment happens at registration time, not purchase time. Customer B registered 2nd, so they occupy slot 2 regardless of whether they eventually buy.
+
+- **Predictability** — If cancellations freed slots, eligibility could change days later. An agent might tell a customer "sorry, you're 11th," then a week later someone cancels and suddenly they're 10th. That's confusing and hard to communicate.
+
+- **Simplicity** — The queue position is just a count of earlier registrations. No recalculation needed when cancellations happen.
+
+**What I considered instead:** Freeing slots on cancellation. This would mean Customer C (11th) becomes eligible if Customer B (2nd) cancels. I decided against it because it makes the system less predictable.
+
+### Example
+
+| Customer | Slot | Status | Down Payment | Eligible? |
+|----------|------|--------|-------------|-----------|
+| A | 1st | Registered | 20% | ✅ Yes |
+| B | 2nd | Cancelled | 0% | ❌ No |
+| C | 11th | Registered | 10% | ❌ Slot 11 |
+
+---
+
+## Scalability Considerations
+
+The seeder creates **50,015 registrations** to test performance. Here's what I did to keep things fast:
+
+- **Database indexes** on `status`, `customer_email`, `created_at`, and a composite index on `(car_model, status, created_at)` for the promotion queue query
+- **Batch inserts** in the seeder (500 records at a time) to avoid memory exhaustion
+- **Pagination** on the agent listing page (default 15 per page, configurable up to 100)
+- **Eager loading** of the `statusLogs` relationship on the detail page to prevent N+1 queries
+- **Scope-based querying** on the model so filtering logic is reusable and readable
+
+For even larger datasets (500k+), I'd consider:
+- Cursor-based pagination instead of offset-based
+- A dedicated search index (Algolia/Meilisearch) for the search bar
+- Queueing the promotion eligibility check as a background job
+
+---
+
+## AI Usage Disclosure
+
+I used an AI coding assistant (Roo) to help generate parts of this codebase. Specifically:
+
+- **Initial scaffolding** — The AI helped generate the initial file structure based on my architecture plan
+- **Boilerplate** — Migration schemas, factory definitions, Blade component templates
+- **Test cases** — The AI suggested test scenarios that I reviewed and adjusted
+
+**Everything was reviewed and tested.** I made sure I understood every line before committing it. The architecture decisions (service layer, state machine design, cancellation policy) were mine — the AI helped with implementation.
+
+### One Example Where AI-Generated Code Was Wrong
+
+The AI initially generated the `PromotionService::getQueuePosition()` method with an incorrectly scoped `orWhere` clause:
+
+```php
+// ❌ AI-generated — this counts ALL registrations, not just CapBay Vroom
+return Registration::where('car_model', 'CapBay Vroom')
+    ->where('created_at', '<', $registration->created_at)
+    ->orWhere('created_at', $registration->created_at)
+    ->where('id', '<=', $registration->id)
+    ->count();
+```
+
+The `orWhere` broke the grouping, so it counted non-CapBay Vroom registrations too. I fixed it by properly nesting the conditions:
+
+```php
+// ✅ Fixed — properly scoped to CapBay Vroom only
+return Registration::where('car_model', 'CapBay Vroom')
+    ->where(function ($query) use ($registration) {
+        $query->where('created_at', '<', $registration->created_at)
+            ->orWhere(function ($q) use ($registration) {
+                $q->where('created_at', $registration->created_at)
+                    ->where('id', '<=', $registration->id);
+            });
+    })
+    ->count();
+```
+
+This was caught by the tests — the queue position test failed because it was returning the wrong number. Good reminder that AI-generated code needs the same scrutiny as any other code.
+
+---
+
+## Project Structure
+
+```
+app/
+├── Enums/
+│   └── RegistrationStatus.php        # 5-state enum with transition rules
+├── Exceptions/
+│   └── InvalidTransitionException.php # Custom exception for invalid state changes
+├── Http/
+│   ├── Controllers/
+│   │   ├── CustomerRegistrationController.php  # Public form (create, store)
+│   │   ├── RegistrationController.php           # Agent CRUD + actions
+│   │   └── DashboardController.php              # Agent dashboard stats
+│   └── Requests/
+│       ├── StoreRegistrationRequest.php         # Public form validation
+│       ├── UpdateRegistrationRequest.php        # Down payment + notes
+│       ├── UpdateRegistrationStateRequest.php   # Status transition
+│       └── ListRegistrationRequest.php          # Filter/sort validation
+├── Models/
+│   ├── Registration.php              # Main model with scopes + helpers
+│   └── RegistrationStatusLog.php     # Audit trail model
+└── Services/
+    ├── RegistrationService.php        # Orchestrator
+    ├── PromotionEligibilityService.php # Promotion logic
+    ├── LoanCalculationService.php     # Loan math
+    └── RegistrationStateService.php   # State machine
+
+database/
+├── factories/
+│   └── RegistrationFactory.php       # Factory with 20 state methods
+├── migrations/
+│   ├── ...create_registrations_table.php
+│   └── ...create_registration_status_logs_table.php
+└── seeders/
+    ├── AdminUserSeeder.php           # agent@capbayauto.com
+    └── RegistrationSeeder.php        # 50,015 registrations
+
+resources/views/
+├── test-drive/
+│   ├── create.blade.php              # Public registration form
+│   └── thank-you.blade.php           # Success page
+├── agent/registrations/
+│   ├── index.blade.php               # Paginated list with filters
+│   └── show.blade.php                # Detail view with actions
+├── components/
+│   ├── status-badge.blade.php        # Color-coded status pills
+│   ├── money.blade.php               # RM formatting from cents
+│   └── promotion-badge.blade.php     # Eligible/Not Eligible/Not Checked
+└── dashboard.blade.php               # Stats dashboard
+
+tests/
+├── Pest.php                          # Test configuration
+├── Unit/
+│   ├── Enums/RegistrationStatusTest.php
+│   └── Services/
+│       ├── PromotionServiceTest.php
+│       ├── LoanServiceTest.php
+│       └── StateMachineServiceTest.php
+└── Feature/
+    ├── CustomerRegistrationTest.php
+    ├── AgentRegistrationManagementTest.php
+    ├── PromotionEligibilityTest.php
+    └── StateTransitionTest.php
+```
