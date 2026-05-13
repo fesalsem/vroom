@@ -43,5 +43,8 @@ jobs:
       - name: Generate app key
         run: php artisan key:generate
 
+      - name: Create SQLite database
+        run: touch database/database.sqlite
+
       - name: Execute tests
         run: php artisan test
